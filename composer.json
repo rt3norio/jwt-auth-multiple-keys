@@ -1,0 +1,67 @@
+{
+    "name": "fidelize/jwt-auth-multiple-keys",
+    "description": "Add multiple keychain support to tymon/jwt-auth package",
+    "keywords": [
+        "auth",
+        "authentication",
+        "json web token",
+        "jwt",
+        "laravel"
+    ],
+    "homepage": "https://github.com/fidelize/jwt-auth-multiple-keys",
+    "support": {
+        "issues": "https://github.com/fidelize/jwt-auth-multiple-keys/issues",
+        "source": "https://github.com/fidelize/jwt-auth-multiple-keys"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Alan Michel Willms Quinot",
+            "email": "dyulax@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": ">=7.0",
+        "lcobucci/jwt": "^3.2",
+        "laravel/framework": "5.5.*",
+        "tymon/jwt-auth": "^0.5.11"
+    },
+    "require-dev": {
+        "mockery/mockery": "0.9.*",
+        "phpunit/phpunit": "~6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Fidelize\\JWTAuth\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Fidelize\\JWTAuth\\Test\\": "tests/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-develop": "1.0-dev"
+        },
+        "laravel": {
+            "aliases": {
+                "JWTAuth": "Tymon\\JWTAuth\\Facades\\JWTAuth",
+                "JWTFactory": "Tymon\\JWTAuth\\Facades\\JWTFactory"
+            },
+            "providers": [
+                "Tymon\\JWTAuth\\Providers\\LaravelServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "prefer-stable": true,
+    "minimum-stability": "dev",
+    "scripts": {
+        "test": "phpunit --colors=always",
+        "test:ci": "composer test -- --verbose --coverage-text --coverage-clover=coverage.xml"
+    }
+}
