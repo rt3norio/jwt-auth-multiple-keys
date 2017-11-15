@@ -20,12 +20,13 @@ Edit your `config/jwt.php` file adding/editing these lines:
 <?php
 return [
     // ...
-
-    'jwt' => 'Fidelize\JWTAuth\JwtAdapter',
-    'auth' => 'Fidelize\JWTAuth\AuthAdapter',
+    'providers' => [
+        // ...
+        'jwt' => 'Fidelize\JWTAuth\JwtAdapter',
+        'auth' => 'Fidelize\JWTAuth\AuthAdapter',
+        // ...
+    ],
     'keys_directory' => '/path/yo/your/keys/directory/'
-
-    // ...
 ];
 ?>
 ```
