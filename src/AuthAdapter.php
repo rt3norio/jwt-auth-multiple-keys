@@ -1,14 +1,31 @@
 <?php
 namespace Fidelize\JWTAuth;
 
+use Illuminate\Contracts\Auth\Factory;
 use Illuminate\Support\Facades\Config;
-use Tymon\JWTAuth\Providers\Auth\IlluminateAuthAdapter;
+use Tymon\JWTAuth\Providers\Auth\Illuminate;
+use Tymon\JWTAuth\Contracts\Providers\Auth;
 
-class AuthAdapter extends IlluminateAuthAdapter
+class AuthAdapter implements Auth
 {
     /**
-     * @inheritdoc
-     * @SuppressWarnings("shortVariable")
+     * The authentication guard.
+     *
+     * @var \Illuminate\Contracts\Auth\Guard
+     */
+    protected $auth;
+
+    public function __construct(Factory $auth)
+    {
+        $this->auth = $auth;
+    }
+
+    /**
+     * Authenticate a user via the id.
+     *
+     * @param  mixed  $id
+     *
+     * @return bool
      */
     public function byId($id)
     {
@@ -19,5 +36,27 @@ class AuthAdapter extends IlluminateAuthAdapter
             return false;
         }
         return $this->auth->setUser($user);
+    }
+
+    /**
+     * Check a user's credentials.
+     *
+     * @param  array  $credentials
+     *
+     * @return bool
+     */
+    public function byCredentials(array $credentials)
+    {
+        return $this->auth->once($credentials);
+    }
+
+    /**
+     * Get the currently authenticated user.
+     *
+     * @return mixed
+     */
+    public function user()
+    {
+        return $this->auth->user();
     }
 }

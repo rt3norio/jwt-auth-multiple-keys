@@ -12,10 +12,10 @@ use Lcobucci\JWT\Signer\Hmac\Sha256 as HS256;
 use Lcobucci\JWT\Signer\Keychain;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
-use Tymon\JWTAuth\Providers\JWT\JWTProvider;
-use Tymon\JWTAuth\Providers\JWT\JWTInterface;
+use Tymon\JWTAuth\Providers\JWT\Lcobucci;
+use Tymon\JWTAuth\Contracts\Providers\JWT;
 
-class JwtAdapter extends JWTProvider implements JWTInterface
+class JwtAdapter extends Lcobucci implements JWT
 {
     /**
      * Create a JSON Web Token.
@@ -26,14 +26,13 @@ class JwtAdapter extends JWTProvider implements JWTInterface
     public function encode(array $payload)
     {
         try {
-            $builder = new Builder;
             foreach ($payload as $key => $value) {
-                $builder->set($key, $value);
+                $this->builder->set($key, $value);
             }
             $key = $this->getPrivateKey();
             $signer = is_object($key) ? new RS256() : new HS256();
-            $builder->sign($signer, $key);
-            $token = $builder->getToken();
+            $this->builder->sign($signer, $key);
+            $token = $this->builder->getToken();
             return $token->__toString();
         } catch (Exception $e) {
             throw new JWTException('Could not create token: ' . $e->getMessage());
@@ -50,8 +49,7 @@ class JwtAdapter extends JWTProvider implements JWTInterface
     public function decode($token)
     {
         try {
-            $parser = new Parser;
-            $token = $parser->parse((string) $token);
+            $token = $this->parser->parse((string) $token);
         } catch (Exception $e) {
             throw new TokenInvalidException('Could not decode token: ' . $e->getMessage());
         }
@@ -84,7 +82,7 @@ class JwtAdapter extends JWTProvider implements JWTInterface
      * PRIVATE key is used to generate new tokens. In order to be trusted,
      * the system receiving the token must validate it against the PUBLIC key.
      */
-    private function getPrivateKey()
+    public function getPrivateKey()
     {
         $files = $this->globKeys('jwt.*.key');
 
