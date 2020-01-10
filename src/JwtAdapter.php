@@ -17,6 +17,17 @@ use Tymon\JWTAuth\Contracts\Providers\JWT;
 
 class JwtAdapter extends Lcobucci implements JWT
 {
+    public function __construct()
+    {
+        return parent::__construct(
+            new Builder(),
+            new Parser(),
+            Config::get('jwt.secret'),
+            Config::get('jwt.algo'),
+            []
+        );
+    }
+
     /**
      * Create a JSON Web Token.
      *
