@@ -20,6 +20,7 @@ class JwtAdapterTest extends AbstractTestCase
     {
         File::shouldReceive('glob')->andReturn([])->byDefault();
         $adapter = new JwtAdapter('secret');
+        $adapter->setSecret('secret');
         $this->assertEquals(
             'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmaWRtYXN0ZXIiLCJpYXQiOjEyMzQ1NiwiZXhwIjoxMjcwNTYsImphdCI6ImZvb2JhcmJheiJ9.4cLrK125FhNhtEsOfzEvLb9iNobv-_1oBLJsx2J9xtw',
             $adapter->encode($this->getPayload())
@@ -61,6 +62,7 @@ class JwtAdapterTest extends AbstractTestCase
     {
         File::shouldReceive('glob')->andReturn([])->byDefault();
         $adapter = new JwtAdapter('INVALID_secret');
+        $adapter->setSecret('INVALID_secret');
         $this->expectException(TokenInvalidException::class);
         $adapter->decode('eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmaWRtYXN0ZXIiLCJpYXQiOjEyMzQ1NiwiZXhwIjoxMjcwNTYsImphdCI6ImZvb2JhcmJheiJ9.4cLrK125FhNhtEsOfzEvLb9iNobv-_1oBLJsx2J9xtw');
     }
@@ -69,6 +71,7 @@ class JwtAdapterTest extends AbstractTestCase
     {
         File::shouldReceive('glob')->andReturn([])->byDefault();
         $adapter = new JwtAdapter('secret');
+        $adapter->setSecret('secret');
         $result = $adapter->decode('eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmaWRtYXN0ZXIiLCJpYXQiOjEyMzQ1NiwiZXhwIjoxMjcwNTYsImphdCI6ImZvb2JhcmJheiJ9.4cLrK125FhNhtEsOfzEvLb9iNobv-_1oBLJsx2J9xtw');
         $this->assertEquals($this->getPayload(), $result);
     }

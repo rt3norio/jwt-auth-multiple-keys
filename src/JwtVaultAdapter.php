@@ -4,7 +4,6 @@ namespace Fidelize\JWTAuth;
 
 use Exception;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 use Lcobucci\JWT\Builder;
@@ -15,7 +14,6 @@ use Lcobucci\JWT\Signer\Hmac\Sha256 as HS256;
 use Lcobucci\JWT\Signer\Keychain;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
-use Tymon\JWTAuth\Providers\JWT\JWTProvider;
 use Tymon\JWTAuth\Providers\JWT\JWTInterface;
 
 class JwtVaultAdapter extends JwtAdapter implements JWTInterface
@@ -89,14 +87,25 @@ class JwtVaultAdapter extends JwtAdapter implements JWTInterface
      */
     private function getPrivateKey()
     {
-        //tem a chave
-        $secret =  Redis::get('vault.privateKey');
-        if ($secret) {
-            $keychain = new Keychain();
-            $chave = $keychain->getPrivateKey($secret);
-            return $chave;
+        $secretObj = Redis::get('vault.privateKey');
+        if ($secretObj) {
+            $secretArr =  json_decode($secretObj);
+            if (now()->timestamp - $secretArr->timestamp < Config::get('jwt.providers.vault.expiration')) {
+                $keychain = new Keychain();
+                $chave = $keychain->getPrivateKey($secretArr->key);
+                return $chave;
+            }
         }
+
         $secrets = $this->getVaultPrivateSecret();
+
+        if (!$secrets) {
+            if (isset($secretArr)) {
+                $keychain = new Keychain();
+                $chave = $keychain->getPrivateKey($secretArr->key);
+                return $chave;
+            }
+        }
 
         if (count($secrets) > 1) {
             throw new TokenInvalidException('Multiple private keys found.');
@@ -107,11 +116,17 @@ class JwtVaultAdapter extends JwtAdapter implements JWTInterface
             return $this->secret;
         }
 
-        $secret = array_pop($secrets);
+        $secret = trim(array_pop($secrets));
+
         $keychain = new Keychain();
         $chave = $keychain->getPrivateKey($secret);
 
-        Redis::set('vault.privateKey', $secret, 'EX', config('jwt.providers.vault.expiration'));
+        $obj = [
+            'key' => $secret,
+            'timestamp' => time()
+        ];
+
+        Redis::set('vault.privateKey', json_encode($obj));
         return $chave;
     }
 
@@ -122,35 +137,32 @@ class JwtVaultAdapter extends JwtAdapter implements JWTInterface
      */
     private function getPublicKeys()
     {
-
-        $secrets = Redis::hgetall('vault.publicKeys');
-        if ($secrets) {
-            $keychain = new Keychain();
-            $keys = [];
-            foreach ($secrets as $key => $secret) {
-                $keys[] = $keychain->getPublicKey($secret);
+        $secretsObj = Redis::hgetall('vault.publicKeys');
+        if ($secretsObj) {
+            $secretsArr =  json_decode($secretsObj);
+            if (time() - $secretsArr->timestamp < Config::get('jwt.providers.vault.expiration')) {
+                unset($secretsArr->timestamp);
+                return $this->checkPublicKeys($secretsArr->keys);
             }
-            return $keys;
         }
-
 
         $secrets = $this->getVaultPublicSecret();
-        Redis::hmset('vault.publicKeys', $secrets);
-        $keychain = new Keychain();
-        $keys = [];
 
-        foreach ($secrets as $key => $secret) {
-            $keys[] = $keychain->getPublicKey($secret);
+        if (!$secrets) {
+            if (isset($secretsArr)) {
+                unset($secretsArr->timestamp);
+                return $this->checkPublicKeys($secretsArr->keys);
+            }
         }
 
-        if (empty($keys)) { // If there is no public key, fallback to JWT_SECRET
-            $keys[] = $this->secret;
-        }
+        $obj = [
+            'keys' => $secrets,
+            'timestamp' => time()
+        ];
+        Redis::hmset('vault.publicKeys', json_encode($obj));
 
-        return $keys;
+        return $this->checkPublicKeys($secrets);
     }
-    ////////////////////////COISAS NOVAS
-
 
     /**
      * Get the secret value for the provided key
@@ -166,42 +178,61 @@ class JwtVaultAdapter extends JwtAdapter implements JWTInterface
     {
         try {
             $response = $this->buildClient(
-                config('jwt.providers.vault.token'),
-                config('jwt.providers.vault.url')
-            )->request(
+                Config::get('jwt.providers.vault.token'),
+                Config::get('jwt.providers.vault.url')
+            )
+            ->request(
                 'GET',
                 '/v1/' .
-                    config('jwt.providers.vault.secret_engine') .
+                    Config::get('jwt.providers.vault.secret_engine') .
                     '/data/' .
-                    config('jwt.providers.vault.secret')
+                    Config::get('jwt.providers.vault.secret')
             );
             return $this->getFullBody($response->getBody())['data']['data'];
         } catch (\Exception $e) {
-            throw new \Exception($e);
+            Log::emergency($e);
+            return false;
         }
         return false;
     }
 
+    private function checkPublicKeys($publickeys)
+    {
+        $keychain = new Keychain();
+        $keys = [];
+        foreach ($publickeys as $key) {
+            $keys[] = $keychain->getPublicKey($key);
+        }
+        return $keys;
+    }
 
     public function getVaultPrivateSecret()
     {
-
         try {
             $response = $this->buildClient(
-                config('jwt.providers.vault.token'),
-                config('jwt.providers.vault.url')
-            )->request(
+                Config::get('jwt.providers.vault.token'),
+                Config::get('jwt.providers.vault.url') . ':8200'
+            )
+            ->request(
                 'GET',
                 '/v1/' .
-                    config('jwt.providers.vault.private.secret_engine') .
+                    Config::get('jwt.providers.vault.private.secret_engine') .
                     '/data/' .
-                    config('jwt.providers.vault.private.secret'),
+                    Config::get('jwt.providers.vault.private.secret'),
                 ['stream' => true]
             );
 
-            return $this->getFullBody($response->getBody())['data']['data'];
+            $body = $response->getBody();
+            $buffer = '';
+            while (!$body->eof()) {
+                $buffer.= trim($body->read(1024));
+            }
+            $data = json_decode($buffer, true)['data']['data'];
+            return $data;
+
         } catch (\Exception $e) {
-            throw new \Exception($e);
+            Log::emergency($e);
+            return false;
         }
         return false;
     }
@@ -238,26 +269,14 @@ class JwtVaultAdapter extends JwtAdapter implements JWTInterface
     {
         $buffer = '';
         while (!$responseBody->eof()) {
-            $buffer .= $responseBody->read(1024);
+            $buffer .= trim($responseBody->read(1024));
         }
         $responseBody->close();
-        $output = json_decode(trim($buffer), true);
+        $output = json_decode($buffer);
         if ($output === null) {
             throw new \Exception('Error parsing response JSON (' . json_last_error() . ')');
         }
 
         return $output;
-    }
-
-    /**
-     * Parse the errors from the provided exception
-     *
-     * @param \Exception $exception Exception instance
-     * @return array Set of error messages (strings)
-     */
-    public function parseErrors($exception)
-    {
-        $body = $exception->getResponse()->getBody()->getContents();
-        return json_decode($body, true)['errors'];
     }
 }
